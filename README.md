@@ -27,4 +27,4 @@ We have divided the work needed to create these deliverables into subtasks and b
 
 To get started working with this repo please see the [Getting Started Guide](https://github.com/CoronaWhy/task-vt/wiki/Getting-Started-Guide). Also check out if any [Existing Resources](https://github.com/CoronaWhy/task-vt/wiki/Interesting-External-Resources) might be helpful to get you started.
 
-Best of luck and thank you for all your hard work in this fight.
+Best of luck and thank you for all your hard work in this fight!

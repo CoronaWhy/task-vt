@@ -56,10 +56,13 @@ from coronawhy_vt import version
 print(version.get_version())
 ```
 
-### Build the docs
+### Documentation [![Documentation Status](https://readthedocs.org/projects/vaccine-and-therapeutics-task-force/badge/?version=latest)](https://vaccine-and-therapeutics-task-force.readthedocs.io/en/latest/?badge=latest)
 
-After installation, do the following to build and open the docs (sorry windows users,
-you're out of luck):
+Documentation is automatically built with every push to master and served by ReadTheDocs at https://readthedocs.org/projects/vaccine-and-therapeutics-task-force.
+
+If you want to build the documentation locally after cloning the repository
+and installing in development mode, you can do the following to build and
+open the docs (sorry windows users, you're out of luck):
 
 ```sh
 cd docs/
@@ -67,6 +70,8 @@ make html
 open build/html/index.html
 ```
 
-Note: ReadTheDocs will take care of auto-building the docs on every commit to master,
-so you don't have to worry about this. Also, because of this, don't commit the
-build artifacts to GitHub!
+You can add new documentation for code you've written and put in `src/coronawhy_vt`
+by creating new `*.rst` files in the `docs/src/` folder. Don't forget to link
+them in the `docs/src/index.rst` table of contents! You can also make nested folder
+structures, for example for all of the sub-tasks. See https://raw.githubusercontent.com/CoronaWhy/task-vt/master/docs/source/versioning.rst
+as an example of using some of the re-structured text *directives* then check out the [Sphinx autodoc tutorial](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#directive-automodule) for more.

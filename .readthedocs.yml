@@ -1,4 +1,10 @@
-# See: https://docs.readthedocs.io/en/latest/yaml-config.html
+###############################################################
+# ReadTheDocs Configuration                                   #
+# (.readthedocs.yml)                                          #
+# See: https://docs.readthedocs.io/en/latest/yaml-config.html #
+# Adapted from https://github.com/pybel/pybel.git             #
+###############################################################
+
 python:
   version: 3
   pip_install: true

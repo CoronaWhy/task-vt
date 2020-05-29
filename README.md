@@ -14,7 +14,7 @@ The page linked above provides more details about the sorts of things that the e
 
 ## About the V&T Task Force
 
-The V&T Task Force is a subgroup of the CoronaWhy team, which is focused on contribuing to the V&T Task. The team is currently being led by Dan (@dnsosa) and Aleksei (@aleksei), please direct any inquiries or issues with permissions to either of these two.
+The V&T Task Force is a subgroup of the CoronaWhy team, which is focused on contributing to the V&T Task. The team is currently being led by Dan (@dnsosa) and Aleksei (@aleksei), please direct any inquiries or issues with permissions to either of these two.
 
 Currently, the V&T Task Force has plans to work towards [3 concrete deliverables](https://docs.google.com/spreadsheets/d/16kYZPYFMR2n4EcLXexVz-lZee03ofZNEVe-8ke-Os4U/edit#gid=1608970502) for the Therapeutics half of the challenge: 
 1. A summary table much like the ones previously discussed [here](https://www.kaggle.com/covid-19-contributions) and [here](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge/discussion/138484#788765). We intend for this table to provide information on drug treatments being considered, evidence supporting these treatments (e.g. clinical vs experimental vs computational), and relevant citations providing evidence for these treatments. 

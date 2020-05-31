@@ -14,7 +14,7 @@ The page linked above provides more details about the sorts of things that the e
 
 ## About the V&T Task Force
 
-The V&T Task Force is a subgroup of the CoronaWhy team, which is focused on contribuing to the V&T Task. The team is currently being led by Dan (@dnsosa) and Aleksei (@aleksei), please direct any inquiries or issues with permissions to either of these two.
+The V&T Task Force is a subgroup of the CoronaWhy team, which is focused on contributing to the V&T Task. The team is currently being led by Dan (@dnsosa) and Aleksei (@aleksei), please direct any inquiries or issues with permissions to either of these two.
 
 Currently, the V&T Task Force has plans to work towards [3 concrete deliverables](https://docs.google.com/spreadsheets/d/16kYZPYFMR2n4EcLXexVz-lZee03ofZNEVe-8ke-Os4U/edit#gid=1608970502) for the Therapeutics half of the challenge: 
 1. A summary table much like the ones previously discussed [here](https://www.kaggle.com/covid-19-contributions) and [here](https://www.kaggle.com/allen-institute-for-ai/CORD-19-research-challenge/discussion/138484#788765). We intend for this table to provide information on drug treatments being considered, evidence supporting these treatments (e.g. clinical vs experimental vs computational), and relevant citations providing evidence for these treatments. 
@@ -56,10 +56,13 @@ from coronawhy_vt import version
 print(version.get_version())
 ```
 
-### Build the docs
+### Documentation [![Documentation Status](https://readthedocs.org/projects/vaccine-and-therapeutics-task-force/badge/?version=latest)](https://vaccine-and-therapeutics-task-force.readthedocs.io/en/latest/?badge=latest)
 
-After installation, do the following to build and open the docs (sorry windows users,
-you're out of luck):
+Documentation is automatically built with every push to master and served by ReadTheDocs at https://readthedocs.org/projects/vaccine-and-therapeutics-task-force.
+
+If you want to build the documentation locally after cloning the repository
+and installing in development mode, you can do the following to build and
+open the docs (sorry windows users, you're out of luck):
 
 ```sh
 cd docs/
@@ -67,6 +70,8 @@ make html
 open build/html/index.html
 ```
 
-Note: ReadTheDocs will take care of auto-building the docs on every commit to master,
-so you don't have to worry about this. Also, because of this, don't commit the
-build artifacts to GitHub!
+You can add new documentation for code you've written and put in `src/coronawhy_vt`
+by creating new `*.rst` files in the `docs/src/` folder. Don't forget to link
+them in the `docs/src/index.rst` table of contents! You can also make nested folder
+structures, for example for all of the sub-tasks. See https://raw.githubusercontent.com/CoronaWhy/task-vt/master/docs/source/versioning.rst
+as an example of using some of the re-structured text *directives* then check out the [Sphinx autodoc tutorial](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#directive-automodule) for more.

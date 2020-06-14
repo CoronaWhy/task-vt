@@ -1,0 +1,66 @@
+treat
+treatment
+alleviate
+manage
+suppress
+suppression
+prescribe
+Prescription
+therapy
+therapeutic
+cure
+remedy
+inject
+inhale
+inhalation
+administration
+administer
+rescue
+reduce
+improve
+candidate
+Variants of above
+Prescribing
+Injection
+Injected with
+Administered to
+Prescription
+repurpose
+Dose
+doses
+Dosage
+Patients took
+Subjects took
+Participants took
+Taken with
+Taken twice daily
+Taken daily
+Given daily
+Given with
+Given to
+Were given
+Oral
+Orally
+Subcutaneously
+Subcutaneous
+Sublingual
+Sublingually
+Topical
+Topically
+Application
+Applied
+Infusion
+Infused
+Transfused
+Transfusion
+Intravenous
+Intravenously
+Medicated
+Medicated patch
+Nebulizer
+Nebulized
+Aerosolized
+Aersol
+Inhaler
+Injectable
+Extended release

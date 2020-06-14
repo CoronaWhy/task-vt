@@ -18,6 +18,7 @@ exclude =
     .cache,
     .eggs
 max-line-length = 120
+ignore = S403,S301
 import-order-style = pycharm
 application-import-names =
     coronawhy_vt

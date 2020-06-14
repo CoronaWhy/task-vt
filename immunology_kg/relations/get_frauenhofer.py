@@ -11,6 +11,7 @@ import requests
 import pybel
 import pandas as pd
 
+from spacify import run_nlp, SCIMODELS 
 from utils import setup_logger
 
 logger = setup_logger(name="get-frauenhofer")
@@ -39,8 +40,8 @@ def load_frauenhofer_json():
 
 def get_entity_names(node):
     """
-    Recursively walk nodes to get all entity name strings 
-    in the graph and their concept.
+    Recursively walk nodes in the json pybel graph to get all 
+    entity name strings in the graph and their concept.
     """
     if "concept" in node:
         names = {}
@@ -61,7 +62,7 @@ def get_entity_names(node):
 
 def get_entity_names_from_graph(data):
     """
-    Get all the entity name strings from the graph and their concept.
+    Get all the entity name strings and their concept from the graph-as-json.
     """
     names = {}
     skipped = 0
@@ -76,13 +77,14 @@ def get_entity_names_from_graph(data):
 
 def collect_sentences(data):
     """
-    Read the PyBel graph-as-dict structure of the Frauenhofer dataset
+    Read the PyBel graph-as-json-dict structure of the Frauenhofer dataset
     and extract all the necessary data to construct a list of lists
     consisting of the [sentence, source, relation, target, metadata].
 
-    NOTE: this is distinct from the Frauenhofer pybel csv file, 
-    in that the source and target entities are simple names here, 
-    without all the extra graph structure annotations. 
+    NOTE: this is distinct from using pybel.to_csv in that the 
+    source and target entities are simple names here, without all
+    all the extra graph structure annotations. We still make sure to
+    keep all of that graph metadata in the 'link' though.
     """
     entries = []
     fail = 0
@@ -137,15 +139,57 @@ def collect_sentences(data):
     ))
     return entries
 
-def get_cited_sentences(data):
+def get_cited_sentences(
+        data,
+        csv_output='covid19_frauenhofer_annotations.csv'
+    ):
+    """
+    Extract Frauenhofer sentences and relations with paper
+    citations into a pandas dataframe.
+    """
     entries = collect_sentences(data)
     df = pd.DataFrame(
         entries,
         columns=['sentence', 'source', 'relation', 'target', 'link', 'pmc_id', 'doi_id']
     )
     cite_df = df.dropna(subset=['pmc_id', 'doi_id'], how="all")
-    cite_df.to_csv('covid19_frauenhofer_annotations.csv')
+    cite_df.to_csv(csv_output)
     return cite_df
+
+def add_spacy_nlp_data(
+        df, 
+        csv_output='covid19_frauenhofer_annotations_entities.csv'
+    ):
+    """
+    Use SpaCy to get additional metadata about sentences in the dataframe,
+    namely, the set of entities found by using each of the scispacy models. 
+    """
+    #we make a set for each sentence in the Frauenhofer dataset because
+    #the each of the SCIMODELS might end up finding the same entities
+    sentence_entities = [None] * len(df)
+    tokenized_sentences = []
+
+    for j, model in enumerate(SCIMODELS):
+
+        documents = run_nlp(df['sentence'].to_list(), model=model)
+
+        for i, doc in enumerate(documents):
+            
+            #we know each of these docs is actually only 1 sentence
+            if j == 1:
+                tokenized_sentences.append(doc.tokenized_sentences[0])
+            ents = doc.entities[0]
+
+            for ent in ents:
+                ent_str = json.dumps(ent.to_dict())
+                if sentence_entities[i] is None:
+                    sentence_entities[i] = set()
+                sentence_entities[i].add(ent_str)
+
+    df['entities'] = sentence_entities
+    df['tokenized_sentences'] = tokenized_sentences
+    df.to_csv(csv_output)
+    return df
 
 def main():
     download_frauenhofer()
@@ -153,6 +197,7 @@ def main():
     cite_df = get_cited_sentences(data)
     logger.info("Sentence annotations with citations: {} / {} ({:.2f}%)".format(
         len(cite_df), len(cite_df), (len(cite_df) / len(cite_df))*100))
+    cite_df = add_spacy_nlp_data(cite_df)
     logger.info("Sample:")
     logger.info(cite_df.head())
     logger.info(cite_df.tail())

@@ -13,7 +13,6 @@ cloudpickle==1.4.1
 colorama==0.4.3
 commitizen==1.22.2
 conllu==3.0
--e git+git@github.com:neuml/cord19q.git@4e270bf78c5cc52f609ced2581c1e12000ec5e76#egg=cord19q
 cymem==2.0.3
 cytoolz==0.10.1
 dask==2.17.2
@@ -68,6 +67,7 @@ plac==1.1.3
 pluggy==0.13.1
 preshed==3.0.2
 prompt-toolkit==3.0.5
+protobuf==3.12.2
 psutil==5.7.0
 py==1.8.1
 pyasn1==0.4.8
@@ -101,6 +101,7 @@ SQLAlchemy==1.3.17
 srsly==1.0.2
 tabulate==0.8.7
 tblib==1.6.0
+tensorboardX==2.0
 termcolor==1.1.0
 thinc==7.4.0
 threadpoolctl==2.1.0

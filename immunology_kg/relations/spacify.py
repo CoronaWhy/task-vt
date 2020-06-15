@@ -1,3 +1,7 @@
+#-*- coding: utf-8 -*-
+"""
+Use SpaCy NLP scientific models
+"""
 import re
 import json
 from typing import Optional
@@ -54,23 +58,32 @@ class Entity(object):
             self, 
             canonical_name: Optional[str]=None,
             token: Optional[str]=None, 
+            string: Optional[str]=None, 
             umls_id: Optional[str]=None, 
-            start: Optional[int]=None,
-            end: Optional[int]=None,
+            start_token: Optional[int]=None,
+            end_token: Optional[int]=None,
+            start_char: Optional[int]=None,
+            end_char: Optional[int]=None,
         ):
         self.token = token
         self.umls_id = umls_id
         self.canonical_name = canonical_name
-        self.start = start
-        self.end = end
+        self.start_token = start_token
+        self.end_token = end_token
+        self.start_char = start_char
+        self.end_char = end_char
+        self.string = string
 
     def to_dict(self):
         return dict(
             token=f"{self.token}",
-            start=self.start,
-            end=self.end,
+            string=f"{self.string}",
+            start_token=self.start_token,
+            end_token=self.end_token,
             umls_id=f"{self.umls_id}",
             canonical_name=f"{self.canonical_name}",
+            start_char=self.start_char,
+            end_char=self.end_char,
         )
 
     def __repr__(self):
@@ -82,6 +95,8 @@ class Entity(object):
 
     def __str__(self):
         return f"<{repr(self)}>" 
+
+
 
 
 def init_nlp(
@@ -200,9 +215,11 @@ def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg") -> list:
                     continue
 
                 entity = Entity()
-                entity.start, entity.end, _ = result
-                entity.start_char, entity.end_char = ent.start_char, ent.end_char
-                entity.token = ' '.join(tokens[entity.start:entity.end])
+                entity.start_token, entity.end_token, entity.string = result
+                entity.start_char = ent.start_char
+                entity.end_char = ent.end_char
+                entity.token = ' '.join(
+                    tokens[entity.start_token:entity.end_token])
 
                 if (
                         is_stop(entity.token) or 

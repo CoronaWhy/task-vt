@@ -201,6 +201,7 @@ def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg") -> list:
 
                 entity = Entity()
                 entity.start, entity.end, _ = result
+                entity.start_char, entity.end_char = ent.start_char, ent.end_char
                 entity.token = ' '.join(tokens[entity.start:entity.end])
 
                 if (

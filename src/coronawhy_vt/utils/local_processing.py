@@ -15,6 +15,16 @@ import pylab
 import spacy
 
 
+Feature = namedtuple('Feature', [
+    'position',
+    'found_word',
+    'section',
+    'block_id',
+    'block_text',
+    'paper_id',
+])
+
+
 def make_ngram_map_and_list(
     filename: str,
     min_word_len: int = 6,
@@ -112,15 +122,6 @@ def pull_mentions(
 
     :return: [('identifier feature': occurrence)]
     """
-    Feature = namedtuple('Feature', [
-        'position',
-        'found_word',
-        'section',
-        'block_id',
-        'block_text',
-        'paper_id',
-    ])
-
     features = []
 
     words = [word.lower() for word in words]

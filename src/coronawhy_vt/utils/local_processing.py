@@ -2,8 +2,10 @@
 
 """Temporary storage for utils used in the processing of local data structures."""
 # TODO function names are in camelcase suggest refactoring to conform to PEP-8
+import itertools as itt
 import json
 import os
+from collections import namedtuple
 from typing import Callable
 
 import dateutil.parser as parser
@@ -12,12 +14,13 @@ import pandas as pd
 import pylab
 import spacy
 
-# TODO All of these functions open a file and do not close it, putting them in the same class would solve some issues
-# TODO lowercase?
 
-
-def make_ngram_map_and_list(filename: str, min_word_len: int = 6, min_num_tokens: int = 0,
-                            max_num_tokens: int = 4) -> (list, dict):
+def make_ngram_map_and_list(
+    filename: str,
+    min_word_len: int = 6,
+    min_num_tokens: int = 0,
+    max_num_tokens: int = 4,
+) -> (list, dict):
     """Given the path of a file of tokens, replace every " " with "_".
 
     :param filename: The path of the file
@@ -32,11 +35,9 @@ def make_ngram_map_and_list(filename: str, min_word_len: int = 6, min_num_tokens
     names = []
     all_names = []
 
-    file = open(filename).readlines()
-    for line in file:
-        # TODO this is meant to remove the last newline character but can remove the last character of the last line if
-        # file does not end with newline recommend rstrip()
-        all_names.append(line.rstrip())
+    with open(filename) as f:
+        for line in f:
+            all_names.append(line.rstrip())
 
     for name in all_names:
         if len(name) >= min_word_len:
@@ -87,12 +88,14 @@ def body_blocks(paper: dict) -> list:
 nlp = spacy.load('en_core_web_lg')
 
 
-def pull_mentions_lemmatized(
-        paths: list,
-        block_selector: Callable[[dict], list],
-        sec_name: str,
-        words: list,
-        replace_dict: dict = None) -> dict:
+def pull_mentions(
+    paths: list,
+    block_selector: Callable[[dict], list],
+    sec_name: str,
+    words: list,
+    replace_dict: dict = None,
+    lemmatized: bool = True,
+) -> dict:
     """Aggregate the positional features of the lemmatized text corpus.
 
     :param paths: pathlib.Path objects corresponding to directories containing
@@ -105,109 +108,67 @@ def pull_mentions_lemmatized(
     :param words: List of lemmatized words
     :param replace_dict: Takes a dict of {token: lemmatized underscore token}
         and replaces occurences of token in text with its value
+    :param lemmatized: True if lemmatize text corpus first
 
-    :return: {'identifier feature': list of occurrences}
+    :return: [('identifier feature': occurrence)]
     """
-    positions = []
-    found_words = []
-    section = []
-    block_id = []
-    block_text = []
-    paper_id = []
+    Feature = namedtuple('Feature', [
+        'position',
+        'found_word',
+        'section',
+        'block_id',
+        'block_text',
+        'paper_id',
+    ])
 
-    tokenized_words = []
-    for w in words:
-        tokenized_words.append(nlp(w.lower())[0].lemma_)
-    for path in paths:
-        files = os.listdir(path)
-        for p in files:
+    features = []
 
-            readfile = open(path / p, 'r')
-            paper = json.load(readfile)
-            blocks = block_selector(paper)
-
-            for b in range(0, len(blocks)):
-                text = blocks[b]['text'].lower()
-                if(replace_dict is not None):
-                    text = run_replace(text, replace_dict)
-                text = nlp(text)
-                for t in text:
-                    for w in tokenized_words:
-                        if(w == t.lemma_):
-                            section.append(sec_name)
-                            found_words.append(w)
-                            positions.append(t.idx)
-                            block_text.append(blocks[b]['text'])
-                            block_id.append(b)
-                            paper_id.append(p[:-5])
-    # TODO discuss pros/cons of this format vs a list of tuples
-    return {'sha': paper_id,
-            'blockid': block_id,
-            'word': found_words,
-            'sec': section,
-            'pos': positions,
-            'block': block_text}
-
-
-def pull_mentions_direct(
-        paths: list,
-        block_selector: Callable[[dict], list],
-        sec_name: str,
-        words: list,
-        replace_dict: dict = None) -> dict:
-    """Aggregate the positional features of the text corpus.
-
-    :param paths: List of pathlib.Path objects containing paths to the directories containing the corpus of text to
-        aggregate features from
-    :param block_selector: The function to retrieve the relevant block from text
-    :param sec_name: Corresponds with block_selector to select the relevant block of text. Options are 'title',
-        'abstract', 'body' TODO seems like this should be pulled into the function as it depends entirely on the
-        block_selector argument
-    :param words: List of lemmatized words
-    :param replace_dict: Takes a dict of {token: lemmatized underscore token} and replaces occurences of token in text
-        with its value
-
-    :return: {'identifier feature': list of occurrences}
-    """
-    # TODO reduce nesting?
-    positions = []
-    found_words = []
-    section = []
-    block_id = []
-    block_text = []
-    paper_id = []
     words = [word.lower() for word in words]
+
+    if lemmatized:
+        tokenized_words = [nlp(w)[0].lemma_ for w in words]
+
     for path in paths:
         files = os.listdir(path)
         for p in files:
 
-            readfile = open(path / p, 'r')
-            paper = json.load(readfile)
-            blocks = block_selector(paper)
+            with open(path / p, 'r') as f:
+                paper = json.load(f)
+                blocks = block_selector(paper)
 
-            for b in range(0, len(blocks)):
-                text = blocks[b]['text'].lower()
-                if(replace_dict is not None):
-                    text = run_replace(text, replace_dict)
-                for w in words:
-                    if(w in text):
-                        pos = text.find(w)
+                for b, block in enumerate(blocks):
+                    text = block['text'].lower()
+                    if replace_dict is not None:
+                        text = run_replace(text, replace_dict)
+                    if lemmatized:
+                        text = nlp(text)
+                        for t, w in itt.product(text, tokenized_words):
+                            if w == t.lemma_:
+                                features.append(Feature(
+                                    position=t.idx,
+                                    found_word=w,
+                                    section=sec_name,
+                                    block_id=b,
+                                    block_text=block['text'],
+                                    paper_id=p[:-5],
+                                ))
+                    else:
+                        for w in words:
+                            if w in text:
+                                pos = text.find(w)
+                                # check we're not in the middle of another word
+                                if text[pos - 1] == " " and \
+                                        ((pos + len(w)) >= len(text) or not text[pos + len(w)].isalpha()):
+                                    features.append(Feature(
+                                        position=text.find(w),
+                                        found_word=w,
+                                        section=sec_name,
+                                        block_id=b,
+                                        block_text=block['text'],
+                                        paper_id=p[:-5],
+                                    ))
+    return features
 
-                        # check we're not in the middle of another word
-                        if(text[pos - 1] == " " and ((pos + len(w)) >= len(text) or not text[pos + len(w)].isalpha())):
-                            section.append(sec_name)
-                            found_words.append(w)
-                            positions.append(text.find(w))
-                            block_text.append(blocks[b]['text'])
-                            block_id.append(b)
-                            paper_id.append(p[:-5])
-    return {'sha': paper_id,
-            'blockid':
-            block_id,
-            'word': found_words,
-            'sec': section,
-            'pos': positions,
-            'block': block_text}
 
 # Recommend changing expected block argument with the entire of the processed
 # paper as it seems the only functionality for this is updating the text of
@@ -238,14 +199,30 @@ paths = ["/kaggle/input/CORD-19-research-challenge/noncomm_use_subset/noncomm_us
 # Also function name might need to change, a little ambiguous
 
 
+def aggregate_text_mentions(data_dicts: list) -> dict:
+    """Aggregate the features of the mentions of vocab from covid text corpus.
+
+    :param data_dicts: List of named_tuple objects in the format returned by pull_mentions
+
+    :return: aggregated dictionary.
+    """
+    summed_dictionary = dict(data_dicts[0]._asdict())
+    for k in summed_dictionary.keys():
+        for d in data_dicts[1:]:
+            summed_dictionary[k] = summed_dictionary[k] + getattr(d, k)
+
+    return summed_dictionary
+
+
 def extract_to_csv(
-        words: list,
-        file_name: str,
-        lemmatized: bool = True,
-        run_title: bool = True,
-        run_abstract: bool = True,
-        run_body: bool = False,
-        replace_dict: dict = None) -> None:
+    words: list,
+    file_name: str,
+    lemmatized: bool = True,
+    run_title: bool = True,
+    run_abstract: bool = True,
+    run_body: bool = False,
+    replace_dict: dict = None,
+) -> None:
     """Store aggregate features of vocab words in the main CORD-19 dataset.
 
     :param words: List of strings representing words of interest
@@ -256,23 +233,15 @@ def extract_to_csv(
     :param run_body: If true, features extracted from the body will be included in the aggregate
     :param replace_dict (dict): {token: replacement_token}
     """
-    if lemmatized:
-        pull_mentions = pull_mentions_lemmatized
-    else:
-        pull_mentions = pull_mentions_direct
-
     data_dicts = []
     if run_title:
-        data_dicts.append(pull_mentions(paths, title_blocks, "title", words, replace_dict))
+        data_dicts += pull_mentions(paths, title_blocks, "title", words, replace_dict, lemmatized=lemmatized)
     if run_abstract:
-        data_dicts.append(pull_mentions(paths, abstract_blocks, "abstract", words, replace_dict))
+        data_dicts += pull_mentions(paths, abstract_blocks, "abstract", words, replace_dict, lemmatized=lemmatized)
     if run_body:
-        data_dicts.append(pull_mentions(paths, body_blocks, "body", words, replace_dict))
+        data_dicts += pull_mentions(paths, body_blocks, "body", words, replace_dict, lemmatized=lemmatized)
 
-    summed_dictionary = data_dicts[0]
-    for k in data_dicts[0].keys():
-        for d in data_dicts:
-            summed_dictionary[k] = summed_dictionary[k] + d[k]
+    summed_dictionary = aggregate_text_mentions(data_dicts)
 
     dat = pd.DataFrame(summed_dictionary)
     dat.to_csv(file_name)
@@ -294,10 +263,8 @@ def same_sentence_check(block: str, pos1: str, pos2: str) -> bool:
     else:
         interstring = block[int(pos2):int(pos1)]
     sentence_enders = [".", ";", "?", "!"]
-    for s in sentence_enders:
-        if s in interstring:
-            return 0
-    return 1
+    return all(s not in interstring
+               for s in sentence_enders)
 
 # This function makes the 2D quilt plot for showing co-occurences at block
 #   or sentence level of various classes of search terms
@@ -307,7 +274,7 @@ def same_sentence_check(block: str, pos1: str, pos2: str) -> bool:
 def make_2d_plot(dat_joined: pd.DataFrame, factor_1: str, factor_2: str, single_sentence_plots: bool = False) -> None:
     """Create 2D quilt plot from dataframe row columns ('word_' + factor_1) and ('word_' + factor_2).
 
-    :param dat_joined: Dataframe of the format returned by pull_mentions_lemmatized and pull_mentions_direct
+    :param dat_joined: Dataframe of the format returned by pull_mentions
     :param factor_1: x-axis of the graph, possible entries 'virus', 'therapy', 'drug', 'exp'
     :param factor_2: y-axis of the graph, possible entries 'virus', 'therapy', 'drug', 'exp'
     :param single_sentece_plots: If true, plot only coocurrences in the same sentence
@@ -322,11 +289,7 @@ def make_2d_plot(dat_joined: pd.DataFrame, factor_1: str, factor_2: str, single_
     index = grouped.count().index
 
     # Holds aggregated, in order appearences of factor_1 and factor_2 respectively
-    index_1 = []
-    index_2 = []
-    for f_1, f_2 in index:
-        index_1.append(f_1)
-        index_2.append(f_2)
+    index_1, index_2 = zip(*index)
 
     uniq_1 = np.unique(index_1)
     uniq_2 = np.unique(index_2)

@@ -75,7 +75,7 @@ def get_entity_names_from_graph(data):
         skipped, i, (skipped / i)*100))
     return names
 
-def collect_sentences(data):
+def collect_texts(data):
     """
     Read the PyBel graph-as-json-dict structure of the Frauenhofer dataset
     and extract all the necessary data to construct a list of lists
@@ -112,15 +112,15 @@ def collect_sentences(data):
                 doi_citations += 1
 
         if 'evidence' in link:
-            sentence = link['evidence']
+            text = link['evidence']
         else:
             #use an empty string instead of None so that when we feed the whole
             #list of sentences to Spacy later we don't run into type problems
-            sentence = ''
+            text = ''
             fail += 1
 
         entries.append([
-            sentence, 
+            text, 
             src_term, 
             relation, 
             tgt_term, 
@@ -130,7 +130,7 @@ def collect_sentences(data):
         ])
         
     missing_citations = i - (pmc_citations + doi_citations)
-    logger.info("Sentences not available for {} / {} ({:.2f}%) entries".format(
+    logger.info("Text evidence not available for {} / {} ({:.2f}%) entries".format(
         fail, i, (fail / i)*100))
     logger.info("Citations not available for {} / {} ({:.2f}%) entries".format(
         missing_citations, 
@@ -147,10 +147,10 @@ def get_cited_sentences(
     Extract Frauenhofer sentences and relations with paper
     citations into a pandas dataframe.
     """
-    entries = collect_sentences(data)
+    entries = collect_texts(data)
     df = pd.DataFrame(
         entries,
-        columns=['sentence', 'source', 'relation', 'target', 'link', 'pmc_id', 'doi_id']
+        columns=['text', 'source', 'relation', 'target', 'link', 'pmc_id', 'doi_id']
     )
     cite_df = df.dropna(subset=['pmc_id', 'doi_id'], how="all")
     cite_df.to_csv(csv_output)
@@ -164,30 +164,35 @@ def add_spacy_nlp_data(
     Use SpaCy to get additional metadata about sentences in the dataframe,
     namely, the set of entities found by using each of the scispacy models. 
     """
-    #we make a set for each sentence in the Frauenhofer dataset because
-    #the each of the SCIMODELS might end up finding the same entities
-    sentence_entities = [None] * len(df)
-    tokenized_sentences = []
+    #we will make sets for each sent for each text in the Frauenhofer dataset
+    #because the each of the SCIMODELS might end up finding the same entities
+    text_entities = [None] * len(df)
+    tokenized_texts = []
 
     for j, model in enumerate(SCIMODELS):
 
-        documents = run_nlp(df['sentence'].to_list(), model=model)
-
+        documents = run_nlp(df['text'].to_list(), model=model)
+        
         for i, doc in enumerate(documents):
             
-            #we know each of these docs is actually only 1 sentence
-            if j == 1:
-                tokenized_sentences.append(doc.tokenized_sentences[0])
-            ents = doc.entities[0]
+            if j == 0: 
+                #only need to add tokens output from the 1st model
+                tokenized_texts.append(doc.tokenized_sentences) 
+                #init text_entities w/ entries for each sent in this text 
+                text_entities[i] = [None] * len(doc.entities)
 
-            for ent in ents:
-                ent_str = json.dumps(ent.to_dict())
-                if sentence_entities[i] is None:
-                    sentence_entities[i] = set()
-                sentence_entities[i].add(ent_str)
+            for k, ents in enumerate(doc.entities):
+                for ent in ents:
+                    if text_entities[i][k] is None:
+                        text_entities[i][k] = set()
+                    ent_str = json.dumps(ent.to_dict())
+                    text_entities[i][k].add(ent_str)
 
-    df['entities'] = sentence_entities
-    df['tokenized_sentences'] = tokenized_sentences
+    print(len(text_entities))
+    print(len(tokenized_texts))
+    print(len(df))
+    df['entities'] = text_entities
+    df['tokenized_texts'] = tokenized_texts
     df.to_csv(csv_output)
     return df
 
@@ -195,7 +200,7 @@ def main():
     download_frauenhofer()
     data = load_frauenhofer_json()
     cite_df = get_cited_sentences(data)
-    logger.info("Sentence annotations with citations: {} / {} ({:.2f}%)".format(
+    logger.info("Text annotations with citations: {} / {} ({:.2f}%)".format(
         len(cite_df), len(cite_df), (len(cite_df) / len(cite_df))*100))
     cite_df = add_spacy_nlp_data(cite_df)
     logger.info("Sample:")

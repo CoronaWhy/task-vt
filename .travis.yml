@@ -5,9 +5,9 @@ dist: xenial
 python:
   - '3.7'
 install:
-  - travis_wait pip install tox codecov
+  - pip install tox codecov
 script:
-  - tox
+  - travis_wait tox
 after_success:
   - tox -e coverage-report
 

@@ -128,7 +128,7 @@ def init_nlp(
 
     #add the abbreviation pipe to the spacy pipeline
     abbreviation_pipe = AbbreviationDetector(nlp)
-    nlp.add_pipe(abbreviation_pipe)
+    nlp.add_pipe(abbreviation_pipe, before='tagger')
 
     #linker looks ups named entities/concepts in UMLS graph, normalizes data
     linker = UmlsEntityLinker(resolve_abbreviations=True)
@@ -162,9 +162,10 @@ def expand_abbrevs(sentence: str, abbrevs: dict) -> list:
     """
     sent_str_expanded = sentence
     for k in abbrevs:
-        sent_str_expanded = sent_str.replace(k, abbrevs[k].text)
+        sent_str_expanded = sent_str_expanded.replace(k, abbrevs[k].text)
     sent_expanded = sent_str_expanded.split()
     return sent_expanded
+
 
 def is_stop(token, lang='en'):
     """
@@ -176,7 +177,7 @@ def is_stop(token, lang='en'):
         return True
     return False
 
-def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg") -> list:
+def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg", unabbrev=True) -> list:
     """
     Extract the list of text documents into documents of tokenized sentences 
     entities for each sentence.
@@ -196,11 +197,14 @@ def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg") -> list:
     #use nlp.pipe parallization from spacy, because it's faster
     docs = nlp.pipe(texts)
     for i, doc in enumerate(docs):
+        abbrevs = extract_abbrevs(doc)
 
         document = Document()
         
         for sent in doc.sents:
             tokens = [token.text for token in sent]
+            tokens = expand_abbrevs(' '.join(tokens), abbrevs)
+
             document.tokenized_sentences.append(tokens)
 
             sent_ents = []
@@ -211,7 +215,7 @@ def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg") -> list:
                     ent.end_char  
                 )
                 if not result:
-                    #entity doesn't exist in the sentence (a mistake of NER) 
+                    #the whole entity doesn't exist in the sent (NER mistake)
                     continue
 
                 entity = Entity()

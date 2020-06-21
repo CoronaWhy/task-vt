@@ -10,6 +10,7 @@ import requests
 
 import pybel
 import pandas as pd
+from fuzzywuzzy import fuzz
 
 from spacify import run_nlp, SCIMODELS 
 from utils import setup_logger
@@ -156,6 +157,47 @@ def get_cited_sentences(
     cite_df.to_csv(csv_output)
     return cite_df
 
+def clean_entity_name(term):
+    """
+    Manual rules to strip notations that show up in the graph entity 
+    that usually won't show up in natural language, to have a better 
+    chance at matching.
+    """
+    to_strip = [
+        "^\(\+\)-", 
+        "^\(\w\)-", 
+        "^[\d',]+[-\+]", 
+        "^\w+\(\w\)-", 
+        "[\d',]+[-\+]$", 
+        "\(\w+\)$",
+        "-$",
+        "^-",
+        "\d\.\d\.\d."
+    ] 
+    for s in to_strip:
+        term = re.sub(s, '', term)
+    term = term.strip()
+    term = term.lower()
+    return term
+
+def same_term(extracted, annotated):
+    """
+    Check if a term extracted by SpaCy looks like the annotated term.
+    """
+    annotated = clean_entity_name(annotated)
+    extracted = clean_entity_name(extracted)
+
+    #first try the simple exact-match way
+    if annotated == extracted:
+        return True
+
+    #then try fuzzy matching
+    score = fuzz.partial_ratio(extracted, annotated)
+    if score is not None and score > 70:
+        return True
+    
+    return False
+
 def add_spacy_nlp_data(
         df, 
         csv_output='covid19_frauenhofer_annotations_entities.csv'
@@ -165,8 +207,10 @@ def add_spacy_nlp_data(
     namely, the set of entities found by using each of the scispacy models. 
     """
     #we will make sets for each sent for each text in the Frauenhofer dataset
-    #because the each of the SCIMODELS might end up finding the same entities
-    text_entities = [None] * len(df)
+    #because each of the SCIMODELS might end up finding the same entities
+    matched_entities = [None] * len(df)
+    all_entities = [None] * len(df)
+    added = [0] * len(df)
     tokenized_texts = []
 
     for j, model in enumerate(SCIMODELS):
@@ -174,26 +218,47 @@ def add_spacy_nlp_data(
         documents = run_nlp(df['text'].to_list(), model=model)
         
         for i, doc in enumerate(documents):
-            
+            source = df.iloc[i]['source']
+            target = df.iloc[i]['target']
+
             if j == 0: 
                 #only need to add tokens output from the 1st model
                 tokenized_texts.append(doc.tokenized_sentences) 
-                #init text_entities w/ entries for each sent in this text 
-                text_entities[i] = [None] * len(doc.entities)
+                #init matched_entities w/ entries for each sent in this text 
+                matched_entities[i] = [None] * len(doc.entities)
+                all_entities[i] = [None] * len(doc.entities)
 
             for k, ents in enumerate(doc.entities):
                 for ent in ents:
-                    if text_entities[i][k] is None:
-                        text_entities[i][k] = set()
-                    ent_str = json.dumps(ent.to_dict())
-                    text_entities[i][k].add(ent_str)
+                    if matched_entities[i][k] is None:
+                        matched_entities[i][k] = set()
+                    if all_entities[i][k] is None:
+                        all_entities[i][k] = set()
 
-    print(len(text_entities))
-    print(len(tokenized_texts))
-    print(len(df))
-    df['entities'] = text_entities
+                    #we will add a string repr to a set to keep from having
+                    #duplicates coming from each of the scispacy models
+                    ent_dict = ent.to_dict()
+                    ent_repr = ' '.join([f"{k}={ent_dict[k]}" for k in ent_dict])
+                    ent_str = ent.token
+
+                    for term in source:
+                        if same_term(ent_str, term):
+                            matched_entities[i][k].add(ent_repr)
+                            added[i] = 1
+                    for term in target:
+                        if same_term(ent_str, term):
+                            matched_entities[i][k].add(ent_repr)
+                            added[i] = 1
+
+                    all_entities[i][k].add(ent_repr)
+                    
+    added_entries = sum(added)
+    df['matched_entities'] = matched_entities
+    df['all_entities'] = all_entities
     df['tokenized_texts'] = tokenized_texts
     df.to_csv(csv_output)
+    logger.info("Added entities to: {} / {} ({:.2f}%)".format(
+        added_entries, len(df), added_entries / len(df) * 100 ))
     return df
 
 def main():
@@ -203,7 +268,7 @@ def main():
     logger.info("Text annotations with citations: {} / {} ({:.2f}%)".format(
         len(cite_df), len(cite_df), (len(cite_df) / len(cite_df))*100))
     cite_df = add_spacy_nlp_data(cite_df)
-    logger.info("Sample:")
+    logger.info(f"Sample:")
     logger.info(cite_df.head())
     logger.info(cite_df.tail())
     return cite_df

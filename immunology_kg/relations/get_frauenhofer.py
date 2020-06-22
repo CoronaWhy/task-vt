@@ -9,6 +9,7 @@ import json
 import requests
 
 import pybel
+import numpy as np
 import pandas as pd
 from fuzzywuzzy import fuzz
 
@@ -270,12 +271,18 @@ def add_spacy_nlp_data(df):
 
                     all_entities[i][k].add(ent_repr)
 
+    sources_added = np.array(sources_added)
+    targets_added = np.array(targets_added)
+    both_added_entries = sum(sources_added & targets_added)
     sources_added_entries = sum(sources_added)
     targets_added_entries = sum(targets_added)
+
     logger.info("Added entities to sources: {} / {} ({:.2f}%)".format(
         sources_added_entries, len(df), sources_added_entries / len(df) * 100 ))
     logger.info("Added entities to targets: {} / {} ({:.2f}%)".format(
         targets_added_entries, len(df), targets_added_entries / len(df) * 100 ))
+    logger.info("Added entities to sources AND targets: {} / {} ({:.2f}%)".format(
+        both_added_entries, len(df), both_added_entries / len(df) * 100 ))
 
     df['matched_entities'] = matched_entities
     df['all_entities'] = all_entities

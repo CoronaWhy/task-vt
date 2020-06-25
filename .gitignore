@@ -137,6 +137,7 @@ Temporary Items
 
 # Session
 Session.vim
+.vscode
 
 # Temporary
 .netrwhist

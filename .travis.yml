@@ -7,7 +7,7 @@ python:
 install:
   - pip install tox codecov
 script:
-  - tox
+  - travis_wait tox
 after_success:
   - tox -e coverage-report
 

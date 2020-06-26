@@ -8,9 +8,10 @@ import re
 import json
 import requests
 
-import pybel
 import numpy as np
 import pandas as pd
+import pybel
+import gilda
 from fuzzywuzzy import fuzz
 
 from spacify import run_nlp, SCIMODELS 
@@ -38,7 +39,9 @@ def download_frauenhofer():
 def load_frauenhofer_json():
     with open(FRAUENHOFER_JSON, 'r', encoding='utf-8') as infile:
         data = json.load(infile)
-    return data 
+    graph = pybel.from_nodelink(data)
+    return data, graph
+
 
 def get_entity_names(node):
     """
@@ -180,20 +183,51 @@ def clean_entity_name(term):
 def same_term(extracted, annotated):
     """
     Check if a term extracted by SpaCy looks like the annotated term.
-    """
-    annotated = clean_entity_name(annotated)
-    extracted = clean_entity_name(extracted)
-
-    #first try the simple exact-match way
-    if annotated == extracted:
-        return True
-
-    #then try fuzzy matching
-    score = fuzz.partial_ratio(extracted, annotated)
-    if score is not None and score > 70:
-        return True
     
-    return False
+    Args:
+        extracted (str): the term extracted from the text
+        annotated (str): the term from the reference annotations
+
+    Returns:
+        same (bool): a boolean if the term is considered the same term
+        metadata (tuple): a 3-tuple of the (namespace, id, name) with 
+                          None's when grounding was unsuccessful
+    """
+    annot_matches = gilda.ground(annotated)
+    extrt_matches = gilda.ground(extracted)
+
+    if annot_matches and extrt_matches:
+        annot_ns = annot_matches[0].term.db
+        annot_ident = annot_matches[0].term.id
+        annot_term = annot_matches[0].term.entry_name
+        annot_grounded = (annot_ns, annot_ident, annot_term) 
+
+        extrt_ns = extrt_matches[0].term.db
+        extrt_ident = extrt_matches[0].term.id
+        extrt_term = extrt_matches[0].term.entry_name
+        extrt_grounded = (extrt_ns, extrt_ident, extrt_term) 
+
+        if (
+            annot_ident is not None and 
+            (annot_ns == extrt_ns) and 
+            (annot_ident == extrt_ident)
+        ):
+            return True, annot_grounded
+
+    else: 
+        annot = clean_entity_name(annotated)
+        extrt = clean_entity_name(extracted)
+
+        #first try the simple exact-match way
+        if annot == extrt:
+            return True, (None, None, annot)
+
+        #then try fuzzy matching
+        score = fuzz.partial_ratio(extrt, annot)
+        if score is not None and score > 70:
+            return True, (None, None, annot)
+    
+    return False, (None, None, None)
 
 def add_spacy_nlp_data(df):
     """
@@ -228,8 +262,8 @@ def add_spacy_nlp_data(df):
         
     matched_entities = [None] * len(df)
     all_entities = [None] * len(df)
-    sources_added = [0] * len(df)
-    targets_added = [0] * len(df)
+    sources_matched = [0] * len(df)
+    targets_matched = [0] * len(df)
     tokenized_texts = []
 
     for j, model in enumerate(SCIMODELS):
@@ -242,7 +276,9 @@ def add_spacy_nlp_data(df):
 
             if j == 0: 
                 #only need to add tokens output from the 1st model
-                tokenized_texts.append(doc.tokenized_sentences) 
+                tokenized_texts.append(
+                    [' '.join(sent) for sent in doc.tokenized_sentences]) 
+
                 #init matched_entities w/ entries for each sent in this text 
                 matched_entities[i] = [None] * len(doc.entities)
                 all_entities[i] = [None] * len(doc.entities)
@@ -257,52 +293,75 @@ def add_spacy_nlp_data(df):
                 for ent in ents:
                     #we will add a string repr to a set to keep from having
                     #duplicates coming from each of the scispacy models
-                    ent_dict = ent.to_dict()
-                    ent_repr = repr(ent_dict) 
 
                     for term in source:
-                        if same_term(ent.token, term):
-                            matched_entities[i][k].add(ent_repr)
-                            sources_added[i] = 1
+                        matched, grounded = same_term(ent.text, term)
+                        if matched: 
+                            ent.namespace, ent.identifier, ent.canonical_name = grounded
+                            matched_entities[i][k].add(json.dumps(ent.to_dict()))
+                            sources_matched[i] = 1
+
                     for term in target:
-                        if same_term(ent.token, term):
-                            matched_entities[i][k].add(ent_repr)
-                            targets_added[i] = 1
+                        matched, grounded = same_term(ent.text, term)
+                        if matched: 
+                            ent.namespace, ent.identifier, ent.canonical_name = grounded
+                            matched_entities[i][k].add(json.dumps(ent.to_dict()))
+                            targets_matched[i] = 1
 
-                    all_entities[i][k].add(ent_repr)
+                    all_entities[i][k].add(json.dumps(ent.to_dict()))
 
-    sources_added = np.array(sources_added)
-    targets_added = np.array(targets_added)
-    both_added_entries = sum(sources_added & targets_added)
-    sources_added_entries = sum(sources_added)
-    targets_added_entries = sum(targets_added)
+    sources_matched = np.array(sources_matched)
+    targets_matched = np.array(targets_matched)
+    both_matched_entries = sum(sources_matched & targets_matched)
+    sources_matched_entries = sum(sources_matched)
+    targets_matched_entries = sum(targets_matched)
 
-    logger.info("Added entities to sources: {} / {} ({:.2f}%)".format(
-        sources_added_entries, len(df), sources_added_entries / len(df) * 100 ))
-    logger.info("Added entities to targets: {} / {} ({:.2f}%)".format(
-        targets_added_entries, len(df), targets_added_entries / len(df) * 100 ))
-    logger.info("Added entities to sources AND targets: {} / {} ({:.2f}%)".format(
-        both_added_entries, len(df), both_added_entries / len(df) * 100 ))
+    logger.info("Matched sources: {} / {} ({:.2f}%)".format(
+        sources_matched_entries, len(df), sources_matched_entries / len(df) * 100 ))
+    logger.info("Matched targets: {} / {} ({:.2f}%)".format(
+        targets_matched_entries, len(df), targets_matched_entries / len(df) * 100 ))
+    logger.info("Matched sources AND targets: {} / {} ({:.2f}%)".format(
+        both_matched_entries, len(df), both_matched_entries / len(df) * 100 ))
 
-    df['matched_entities'] = matched_entities
-    df['all_entities'] = all_entities
-    df['tokenized_texts'] = tokenized_texts
+    return tokenized_texts, matched_entities, all_entities
 
-    return df
+def to_doccano(df, outfp):
+    with open(outfp, 'w', encoding='utf-8') as outfile:
+        for i in range(len(df)):
+            texts = df.iloc[i]['tokenized_texts']
+            entities = df.iloc[i]['all_entities']
+            for j, sent in enumerate(texts):
+                entry = {}
+                sent_ents = entities[j]
+                sent_ents = [json.loads(ent) for ent in sent_ents]
+                entry['text'] = texts[j]
+                entry['labels'] = [[ent['start_char'], ent['end_char'], ent['label']] 
+                                   for ent in sent_ents]
+                outfile.write(json.dumps(entry) + '\n')
+                 
 
 def main():
     download_frauenhofer()
-    data = load_frauenhofer_json()
+    data, graph = load_frauenhofer_json()
 
-    csv_output='covid19_frauenhofer_annotations.csv'
     cite_df = get_cited_sentences(data)
+
+    csv_output = 'covid19_frauenhofer_annotations.csv'
     cite_df.to_csv(csv_output)
     logger.info("Text annotations with citations: {} / {} ({:.2f}%)".format(
         len(cite_df), len(cite_df), (len(cite_df) / len(cite_df))*100))
 
-    csv_output='covid19_frauenhofer_annotations_entities.csv'
-    cite_df = add_spacy_nlp_data(cite_df)
+    tokenized_texts, matched_entities, all_entities = add_spacy_nlp_data(cite_df)
+
+    csv_output = 'covid19_frauenhofer_annotations_entities.csv'
+    cite_df['matched_entities'] = matched_entities
+    cite_df['all_entities'] = all_entities
+    cite_df['tokenized_texts'] = tokenized_texts
     cite_df.to_csv(csv_output)
+
+    doccano_outfile = "covid19_frauenhofer_spacy_ner.txt"
+    to_doccano(cite_df, doccano_outfile)
+
     logger.info(f"Sample of {csv_output}:")
     logger.info(cite_df.head())
     logger.info(cite_df.tail())

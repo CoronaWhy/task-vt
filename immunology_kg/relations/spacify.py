@@ -56,32 +56,37 @@ class Entity(object):
     """A named entity, extracted from some text."""
     def __init__(
             self, 
+            namespace: Optional[str]=None,
             canonical_name: Optional[str]=None,
-            token: Optional[str]=None, 
+            label: Optional[str]=None,
+            text: Optional[str]=None, 
             string: Optional[str]=None, 
-            umls_id: Optional[str]=None, 
+            identifier: Optional[str]=None, 
             start_token: Optional[int]=None,
             end_token: Optional[int]=None,
             start_char: Optional[int]=None,
             end_char: Optional[int]=None,
         ):
-        self.token = token
-        self.umls_id = umls_id
+        self.text = text
+        self.namespace = namespace
+        self.identifier = identifier
         self.canonical_name = canonical_name
+        self.label = label
+        #NOTE: indicies shold be [inclusive, exclusive), i.e. [start, end)
         self.start_token = start_token
         self.end_token = end_token
         self.start_char = start_char
         self.end_char = end_char
-        self.string = string
 
     def to_dict(self):
         return dict(
-            token=f"{self.token}",
-            string=f"{self.string}",
+            token=f"{self.text}",
+            namespace=f"{self.namespace}",
+            identifier=f"{self.identifier}",
+            canonical_name=f"{self.canonical_name}",
+            label = f"{self.label}", 
             start_token=self.start_token,
             end_token=self.end_token,
-            umls_id=f"{self.umls_id}",
-            canonical_name=f"{self.canonical_name}",
             start_char=self.start_char,
             end_char=self.end_char,
         )
@@ -203,7 +208,8 @@ def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg", unabbrev=True) -
         
         for sent in doc.sents:
             tokens = [token.text for token in sent]
-            tokens = expand_abbrevs(' '.join(tokens), abbrevs)
+            tokens_string = ' '.join(tokens)
+            tokens = expand_abbrevs(tokens_string, abbrevs)
 
             document.tokenized_sentences.append(tokens)
 
@@ -219,21 +225,23 @@ def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg", unabbrev=True) -
                     continue
 
                 entity = Entity()
-                entity.start_token, entity.end_token, entity.string = result
-                entity.start_char = ent.start_char
-                entity.end_char = ent.end_char
-                entity.token = ' '.join(
+                entity.label = ent.label_
+                entity.start_token, entity.end_token, _ = result
+                entity.text = ' '.join(
                     tokens[entity.start_token:entity.end_token])
+                entity.start_char = tokens_string.find(entity.text) 
+                entity.end_char = len(entity.text) + entity.start_char + 1 
 
                 if (
-                        is_stop(entity.token) or 
-                        not re.search('[a-zA-Z]', str(entity.token))
+                        is_stop(entity.text) or 
+                        not re.search('[a-zA-Z]', str(entity.text))
                    ):
                     continue
             
                 if len(ent._.umls_ents) > 0:
-                    entity.umls_id = ent._.umls_ents[0][0]
-                    name = linker.umls.cui_to_entity[entity.umls_id].canonical_name
+                    entity.namespace = 'umls'
+                    entity.identifier = ent._.umls_ents[0][0]
+                    name = linker.umls.cui_to_entity[entity.identifier].canonical_name
                     entity.canonical_name = name
 
                 sent_ents.append(entity)

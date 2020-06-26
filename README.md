@@ -75,3 +75,7 @@ by creating new `*.rst` files in the `docs/src/` folder. Don't forget to link
 them in the `docs/src/index.rst` table of contents! You can also make nested folder
 structures, for example for all of the sub-tasks. See https://raw.githubusercontent.com/CoronaWhy/task-vt/master/docs/source/versioning.rst
 as an example of using some of the re-structured text *directives* then check out the [Sphinx autodoc tutorial](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#directive-automodule) for more.
+
+## Contributing
+
+- Please make sure your PR is rebased vs master so it's possible to see what files you've changed.

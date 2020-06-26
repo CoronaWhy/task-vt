@@ -72,7 +72,7 @@ class Entity(object):
         self.identifier = identifier
         self.canonical_name = canonical_name
         self.label = label
-        #NOTE: indicies shold be [inclusive, exclusive), i.e. [start, end)
+        #NOTE: indicies should be [start, end) i.e. [inclusive, exclusive)
         self.start_token = start_token
         self.end_token = end_token
         self.start_char = start_char
@@ -80,7 +80,7 @@ class Entity(object):
 
     def to_dict(self):
         return dict(
-            token=f"{self.text}",
+            text=f"{self.text}",
             namespace=f"{self.namespace}",
             identifier=f"{self.identifier}",
             canonical_name=f"{self.canonical_name}",

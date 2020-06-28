@@ -22,6 +22,16 @@ SCIMODELS = [
     "en_ner_bionlp13cg_md"
 ]
 
+SCISPACY_ENT_LABELS = set([
+    'GGP', 'SO', 'TAXON', 'CHEBI', 'GO', 'CL', 'DNA', 'CELL_TYPE', 
+    'CELL_LINE', 'RNA', 'PROTEIN', 'DISEASE', 'CHEMICAL', 'CANCER',
+    'ORGAN', 'TISSUE', 'ORGANISM', 'CELL', 'AMINO_ACID',
+    'GENE_OR_GENE_PRODUCT', 'SIMPLE_CHEMICAL', 'ANATOMICAL_SYSTEM', 
+    'IMMATERIAL_ANATOMICAL_ENTITY', 'MULTI-TISSUE_STRUCTURE', 
+    'DEVELOPING_ANATOMICAL_STRUCTURE', 'ORGANISM_SUBDIVISION',
+    'CELLULAR_COMPONENT', 'PATHOLOGICAL_FORMATION'
+])
+
 stopwords_path = "stopwords-all.json"
 with open(stopwords_path, 'r', encoding='utf-8') as infile:
     STOPWORDS = json.load(infile)
@@ -215,6 +225,13 @@ def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg", unabbrev=True) -
 
             sent_ents = []
             for ent in sent.ents:
+                entity = Entity()
+
+                entity.label = ent.label_
+                if entity.label not in SCISPACY_ENT_LABELS:
+                    #probably not a scientific entity (e.g. just ENTITY)
+                    continue
+
                 result = char_idx_to_token_idx(
                     ' '.join(tokens), 
                     ent.start_char, 
@@ -224,8 +241,6 @@ def run_nlp(texts: list, model: Optional[str]="en_core_sci_lg", unabbrev=True) -
                     #the whole entity doesn't exist in the sent (NER mistake)
                     continue
 
-                entity = Entity()
-                entity.label = ent.label_
                 entity.start_token, entity.end_token, _ = result
                 entity.text = ' '.join(
                     tokens[entity.start_token:entity.end_token])
